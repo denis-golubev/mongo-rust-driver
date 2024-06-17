@@ -20,8 +20,12 @@ mod tls_openssl;
 #[cfg_attr(feature = "openssl-tls", allow(unused))]
 mod tls_rustls;
 mod worker_handle;
+mod tls_worker;
 
-use std::{future::Future, net::SocketAddr, time::Duration};
+#[cfg(not(target_arch = "wasm32"))]
+use std::net::SocketAddr;
+
+use std::{future::Future, time::Duration};
 
 #[cfg(feature = "dns-resolver")]
 pub(crate) use self::resolver::AsyncResolver;
@@ -32,7 +36,11 @@ pub(crate) use self::{
     sync_read_ext::SyncLittleEndianRead,
     worker_handle::{WorkerHandle, WorkerHandleListener},
 };
-use crate::{error::Result, options::ServerAddress};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::options::ServerAddress;
+
+use crate::{error::Result};
 #[cfg(any(
     feature = "aws-auth",
     feature = "azure-kms",
@@ -45,10 +53,14 @@ pub(crate) use http::HttpClient;
 use tls_openssl as tls;
 #[cfg(all(feature = "rustls-tls", not(feature = "openssl-tls")))]
 use tls_rustls as tls;
-#[cfg(not(any(feature = "rustls-tls", feature = "openssl-tls")))]
-compile_error!("At least one of the features 'rustls-tls' or 'openssl-tls' must be enabled.");
+// #[cfg(not(any(feature = "rustls-tls", feature = "openssl-tls")))]
+// compile_error!("At least one of the features 'rustls-tls' or 'openssl-tls' must be enabled.");
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) use tls::TlsConfig;
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) use tls_worker::TlsConfig;
 
 /// Spawn a task in the background to run a future.
 ///
@@ -69,6 +81,7 @@ pub(crate) async fn timeout<F: Future>(timeout: Duration, future: F) -> Result<F
         .map_err(|_| std::io::ErrorKind::TimedOut.into())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) async fn resolve_address(
     address: &ServerAddress,
 ) -> Result<impl Iterator<Item = SocketAddr>> {
