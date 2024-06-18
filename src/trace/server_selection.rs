@@ -1,7 +1,5 @@
 use super::{
-    trace_or_log_enabled,
-    TracingOrLogLevel,
-    TracingRepresentation,
+    trace_or_log_enabled, TracingOrLogLevel, TracingRepresentation,
     SERVER_SELECTION_TRACING_EVENT_TARGET,
 };
 use crate::{
@@ -10,6 +8,7 @@ use crate::{
     selection_criteria::SelectionCriteria,
 };
 use bson::oid::ObjectId;
+use chrono::{DateTime, Utc};
 use std::time::{Duration, Instant};
 
 impl TracingRepresentation for SelectionCriteria {
@@ -33,7 +32,7 @@ pub(crate) struct ServerSelectionTracingEventEmitter<'a> {
     topology_id: ObjectId,
     criteria: &'a SelectionCriteria,
     operation_name: &'a str,
-    start_time: Instant,
+    start_time: DateTime<Utc>,
     timeout: Duration,
 }
 
@@ -42,7 +41,7 @@ impl ServerSelectionTracingEventEmitter<'_> {
         topology_id: ObjectId,
         criteria: &'a SelectionCriteria,
         operation_name: &'a str,
-        start_time: Instant,
+        start_time: DateTime<Utc>,
         timeout: Duration,
     ) -> ServerSelectionTracingEventEmitter<'a> {
         ServerSelectionTracingEventEmitter::<'a> {

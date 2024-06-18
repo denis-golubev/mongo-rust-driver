@@ -9,17 +9,14 @@ use typed_builder::TypedBuilder;
 
 #[cfg(any(feature = "azure-oidc", feature = "gcp-oidc"))]
 use crate::client::auth::{
-    AZURE_ENVIRONMENT_VALUE_STR,
-    ENVIRONMENT_PROP_STR,
-    GCP_ENVIRONMENT_VALUE_STR,
+    AZURE_ENVIRONMENT_VALUE_STR, ENVIRONMENT_PROP_STR, GCP_ENVIRONMENT_VALUE_STR,
     TOKEN_RESOURCE_PROP_STR,
 };
 use crate::{
     client::{
         auth::{
             sasl::{SaslResponse, SaslStart},
-            AuthMechanism,
-            ALLOWED_HOSTS_PROP_STR,
+            AuthMechanism, ALLOWED_HOSTS_PROP_STR,
         },
         options::{ServerAddress, ServerApi},
     },
@@ -200,7 +197,7 @@ impl Callback {
                                     ),
                                 )
                             })?;
-                        let expires = Some(Instant::now() + Duration::from_secs(expires_in));
+                        let expires = Some(Utc::now() + Duration::from_secs(expires_in));
                         Ok(IdpServerResponse {
                             access_token,
                             expires,
@@ -278,7 +275,9 @@ enum CallbackKind {
     Machine,
 }
 
+use chrono::{DateTime, Utc};
 use std::fmt::Debug;
+
 impl std::fmt::Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(format!("Callback: {:?}", self.kind).as_str())
@@ -296,7 +295,7 @@ pub(crate) struct Cache {
     refresh_token: Option<String>,
     access_token: Option<String>,
     token_gen_id: u32,
-    last_call_time: Instant,
+    last_call_time: DateTime<Utc>,
 }
 
 impl Cache {
@@ -306,7 +305,7 @@ impl Cache {
             refresh_token: None,
             access_token: None,
             token_gen_id: 0,
-            last_call_time: Instant::now(),
+            last_call_time: Utc::now(),
         }
     }
 
@@ -320,7 +319,7 @@ impl Cache {
         }
         self.access_token = Some(response.access_token.clone());
         self.refresh_token.clone_from(&response.refresh_token);
-        self.last_call_time = Instant::now();
+        self.last_call_time = Utc::now();
         self.token_gen_id += 1;
     }
 
@@ -388,7 +387,7 @@ pub struct IdpServerInfo {
 pub struct CallbackContext {
     /// The time in the future when the function should return an error if it
     /// it has not completed.
-    pub timeout: Option<Instant>,
+    pub timeout: Option<DateTime<Utc>>,
     /// The version of the function API that the driver is using.
     pub version: u32,
     /// The refresh token that the driver has stored in the cache, which may not
@@ -430,7 +429,7 @@ pub struct IdpServerResponse {
     /// The token that the driver will use to authenticate with the server.
     pub access_token: String,
     /// The time when the access token expires.
-    pub expires: Option<Instant>,
+    pub expires: Option<DateTime<Utc>>,
     /// The token that the driver will use to refresh the access token when the
     /// access_token expires.
     pub refresh_token: Option<String>,
@@ -616,7 +615,7 @@ async fn do_single_step_function(
 ) -> Result<()> {
     let idp_response = {
         let cb_context = CallbackContext {
-            timeout: Some(Instant::now() + timeout),
+            timeout: Some(Utc::now() + timeout),
             version: API_VERSION,
             refresh_token: None,
             idp_info: cred_cache.idp_server_info.clone(),
@@ -661,7 +660,7 @@ async fn do_two_step_function(
         bson::from_slice(&response.payload).map_err(|_| invalid_auth_response())?;
     let idp_response = {
         let cb_context = CallbackContext {
-            timeout: Some(Instant::now() + timeout),
+            timeout: Some(Utc::now() + timeout),
             version: API_VERSION,
             refresh_token: None,
             idp_info: Some(server_info.clone()),
@@ -771,7 +770,7 @@ async fn authenticate_human(
     ) {
         let idp_response = {
             let cb_context = CallbackContext {
-                timeout: Some(Instant::now() + HUMAN_CALLBACK_TIMEOUT),
+                timeout: Some(Utc::now() + HUMAN_CALLBACK_TIMEOUT),
                 version: API_VERSION,
                 refresh_token,
                 idp_info,

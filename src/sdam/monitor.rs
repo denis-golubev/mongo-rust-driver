@@ -7,22 +7,20 @@ use std::{
 };
 
 use bson::doc;
+use chrono::Utc;
 use tokio::sync::watch;
 
 use super::{
     description::server::{ServerDescription, TopologyVersion},
     topology::{SdamEventEmitter, TopologyCheckRequestReceiver},
-    TopologyUpdater,
-    TopologyWatcher,
+    TopologyUpdater, TopologyWatcher,
 };
 use crate::{
     client::options::ServerMonitoringMode,
     cmap::{establish::ConnectionEstablisher, Connection},
     error::{Error, Result},
     event::sdam::{
-        SdamEvent,
-        ServerHeartbeatFailedEvent,
-        ServerHeartbeatStartedEvent,
+        SdamEvent, ServerHeartbeatFailedEvent, ServerHeartbeatStartedEvent,
         ServerHeartbeatSucceededEvent,
     },
     hello::{hello_command, run_hello, AwaitableHelloOptions, HelloReply},
@@ -254,14 +252,15 @@ impl Monitor {
                     }
                 }
                 None => {
-                    let start = Instant::now();
+                    let start = Utc::now();
                     let res = self
                         .connection_establisher
                         .establish_monitoring_connection(self.address.clone(), driver_connection_id)
                         .await;
                     match res {
                         Ok((conn, hello_reply)) => {
-                            self.rtt_monitor_handle.add_sample(start.elapsed());
+                            self.rtt_monitor_handle
+                                .add_sample((Utc::now() - start).to_std().unwrap());
                             self.connection = Some(conn);
                             Ok(hello_reply)
                         }
@@ -272,7 +271,7 @@ impl Monitor {
         };
 
         // Execute the hello while also listening for cancellation and keeping track of the timeout.
-        let start = Instant::now();
+        let start = Utc::now();
         let result = tokio::select! {
             result = execute_hello => match result {
                 Ok(reply) => HelloResult::Ok(reply),
@@ -289,7 +288,7 @@ impl Monitor {
                 HelloResult::Err(Error::network_timeout())
             }
         };
-        let duration = start.elapsed();
+        let duration = (Utc::now() - start).to_std().unwrap();
 
         let awaited = self.topology_version.is_some() && self.allow_streaming;
         match result {
@@ -465,7 +464,7 @@ impl RttMonitor {
                 Result::Ok(())
             };
 
-            let start = Instant::now();
+            let start = Utc::now();
             let check_succeded = tokio::select! {
                 r = perform_check => r.is_ok(),
                 _ = tokio::time::sleep(timeout) => {
@@ -474,8 +473,9 @@ impl RttMonitor {
             };
 
             if check_succeded {
-                self.sender
-                    .send_modify(|rtt_info| rtt_info.add_sample(start.elapsed()));
+                self.sender.send_modify(|rtt_info| {
+                    rtt_info.add_sample((Utc::now() - start).to_std().unwrap())
+                });
             } else {
                 // From the SDAM spec: "Errors encountered when running a hello or legacy hello
                 // command MUST NOT update the topology."

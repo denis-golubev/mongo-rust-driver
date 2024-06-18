@@ -19,8 +19,7 @@ use crate::{
     operation::{run_command::RunCommand, RawOutput},
     options::ReadConcern,
     runtime::{process::Process, AsyncStream, TlsConfig},
-    Client,
-    Namespace,
+    Client, Namespace,
 };
 
 use super::options::KmsProviders;
@@ -414,6 +413,7 @@ fn raw_to_doc(raw: &RawDocument) -> Result<Document> {
 #[cfg(feature = "azure-kms")]
 pub(crate) mod azure {
     use bson::{rawdoc, RawDocumentBuf};
+    use chrono::{DateTime, Utc};
     use serde::Deserialize;
     use std::time::{Duration, Instant};
     use tokio::sync::Mutex;
@@ -449,7 +449,7 @@ pub(crate) mod azure {
         pub(crate) async fn get_token(&self) -> Result<RawDocumentBuf> {
             let mut cached_token = self.cached_access_token.lock().await;
             if let Some(cached) = &*cached_token {
-                if cached.expire_time.saturating_duration_since(Instant::now())
+                if cached.expire_time.saturating_duration_since(Utc::now())
                     > Duration::from_secs(60)
                 {
                     return Ok(cached.token_doc.clone());
@@ -462,7 +462,7 @@ pub(crate) mod azure {
         }
 
         async fn fetch_new_token(&self) -> Result<CachedAccessToken> {
-            let now = Instant::now();
+            let now = Utc::now();
             let server_response: ServerResponse = self
                 .http
                 .get(self.make_url()?)
@@ -538,7 +538,7 @@ pub(crate) mod azure {
     #[derive(Debug)]
     pub(crate) struct CachedAccessToken {
         pub(crate) token_doc: RawDocumentBuf,
-        pub(crate) expire_time: Instant,
+        pub(crate) expire_time: DateTime<Utc>,
         #[cfg(test)]
         pub(crate) server_response: ServerResponse,
     }

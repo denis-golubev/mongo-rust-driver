@@ -69,14 +69,14 @@ pub(crate) struct Connection {
 
     pub(crate) generation: ConnectionGeneration,
 
-    pub(crate) time_created: Instant,
+    pub(crate) time_created: DateTime<Utc>,
 
     /// The cached StreamDescription from the connection's handshake.
     pub(super) stream_description: Option<StreamDescription>,
 
     /// Marks the time when the connection was last checked into the pool. This is used
     /// to detect if the connection is idle.
-    ready_and_available_time: Option<Instant>,
+    ready_and_available_time: Option<DateTime<Utc>>,
 
     /// PoolManager used to check this connection back in when dropped.
     /// None when checked into the pool.
@@ -129,7 +129,7 @@ impl Connection {
         stream: AsyncStream,
         id: u32,
         generation: ConnectionGeneration,
-        time_created: Instant,
+        time_created: DateTime<Utc>,
     ) -> Self {
         Self {
             id,
@@ -183,7 +183,7 @@ impl Connection {
             stream,
             id,
             ConnectionGeneration::Monitoring,
-            Instant::now(),
+            Utc::now(),
         )
     }
 
@@ -209,7 +209,7 @@ impl Connection {
     /// detecting when it becomes idle.
     pub(super) fn mark_as_available(&mut self) {
         self.pool_manager.take();
-        self.ready_and_available_time = Some(Instant::now());
+        self.ready_and_available_time = Some(Utc::now());
     }
 
     /// Helper to mark that the connection has been checked out of the pool. This ensures that the
@@ -225,7 +225,12 @@ impl Connection {
         self.ready_and_available_time
             .and_then(|ready_and_available_time| {
                 max_idle_time.map(|max_idle_time| {
-                    Instant::now().duration_since(ready_and_available_time) >= max_idle_time
+                    // TODO: This change is very hacky.
+                    Utc::now()
+                        .signed_duration_since(ready_and_available_time)
+                        .to_std()
+                        .unwrap()
+                        >= max_idle_time
                 })
             })
             .unwrap_or(false)
@@ -266,7 +271,7 @@ impl Connection {
         ConnectionReadyEvent {
             address: self.address.clone(),
             connection_id: self.id,
-            duration: Instant::now() - self.time_created,
+            duration: (Utc::now() - self.time_created).to_std().unwrap(),
         }
     }
 
@@ -627,7 +632,7 @@ pub(crate) struct PendingConnection {
     pub(crate) address: ServerAddress,
     pub(crate) generation: PoolGeneration,
     pub(crate) event_emitter: CmapEventEmitter,
-    pub(crate) time_created: Instant,
+    pub(crate) time_created: DateTime<Utc>,
 }
 
 impl PendingConnection {

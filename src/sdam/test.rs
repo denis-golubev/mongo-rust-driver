@@ -4,6 +4,7 @@ use std::{
 };
 
 use bson::doc;
+use chrono::Utc;
 use semver::VersionReq;
 
 use crate::{
@@ -14,14 +15,12 @@ use crate::{
     hello::{LEGACY_HELLO_COMMAND_NAME, LEGACY_HELLO_COMMAND_NAME_LOWERCASE},
     sdam::{ServerDescription, Topology},
     test::{
-        get_client_options,
-        log_uncaptured,
+        get_client_options, log_uncaptured,
         util::{
             event_buffer::EventBuffer,
             fail_point::{FailPoint, FailPointMode},
         },
-        Event,
-        TestClient,
+        Event, TestClient,
     },
     Client,
 };
@@ -63,14 +62,14 @@ async fn min_heartbeat_frequency() {
     options.server_selection_timeout = Some(Duration::from_secs(5));
     let client = Client::with_options(options).expect("client creation succeeds");
 
-    let start = Instant::now();
+    let start = Utc::now();
     client
         .database("admin")
         .run_command(doc! { "ping": 1 })
         .await
         .expect("ping should eventually succeed");
 
-    let elapsed = Instant::now().duration_since(start).as_millis();
+    let elapsed = Utc::now().duration_since(start).as_millis();
     assert!(
         elapsed >= 2000,
         "expected to take at least 2 seconds, instead took {}ms",

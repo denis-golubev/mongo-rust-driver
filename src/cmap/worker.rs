@@ -4,10 +4,7 @@ use super::{
     conn::PendingConnection,
     connection_requester,
     connection_requester::{
-        ConnectionRequest,
-        ConnectionRequestReceiver,
-        ConnectionRequestResult,
-        ConnectionRequester,
+        ConnectionRequest, ConnectionRequestReceiver, ConnectionRequestResult, ConnectionRequester,
         WeakConnectionRequester,
     },
     establish::ConnectionEstablisher,
@@ -16,26 +13,22 @@ use super::{
     options::ConnectionPoolOptions,
     status,
     status::{PoolGenerationPublisher, PoolGenerationSubscriber},
-    Connection,
-    DEFAULT_MAX_POOL_SIZE,
+    Connection, DEFAULT_MAX_POOL_SIZE,
 };
 use crate::{
     bson::oid::ObjectId,
     client::auth::Credential,
     error::{load_balanced_mode_mismatch, Error, ErrorKind, Result},
     event::cmap::{
-        CmapEventEmitter,
-        ConnectionClosedEvent,
-        ConnectionClosedReason,
-        PoolClearedEvent,
-        PoolClosedEvent,
-        PoolReadyEvent,
+        CmapEventEmitter, ConnectionClosedEvent, ConnectionClosedReason, PoolClearedEvent,
+        PoolClosedEvent, PoolReadyEvent,
     },
     options::ServerAddress,
     runtime::{self, WorkerHandleListener},
     sdam::{BroadcastMessage, TopologyUpdater},
 };
 
+use chrono::Utc;
 use std::{
     collections::{HashMap, VecDeque},
     time::{Duration, Instant},
@@ -465,7 +458,7 @@ impl ConnectionPoolWorker {
             address: self.address.clone(),
             generation: self.generation.clone(),
             event_emitter: self.event_emitter.clone(),
-            time_created: Instant::now(),
+            time_created: Utc::now(),
         };
         self.next_connection_id += 1;
         self.event_emitter
