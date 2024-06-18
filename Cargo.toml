@@ -152,8 +152,14 @@ version = "1.1.2"
 features = ["v4"]
 
 [target.wasm32-unknown-unknown.dependencies]
+# We need getrandom with the js feature for the wasm target.
 getrandom = { version = "0.2.2", features = ["js"] }
+# The Cloudflare worker runtime, for TCP connections.
 worker = "0.3.0"
+# For spawning futures on the worker as a replacement for tokio's spawn
+wasm-bindgen-futures = "0.4.42"
+# Use wasmbind feature additionally, so that time operations can be used in wasm.
+chrono = { version = "0.4.7", default-features = false, features = ["clock", "std", "wasmbind"] }
 
 [dev-dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }

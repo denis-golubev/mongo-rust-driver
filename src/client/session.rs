@@ -4,6 +4,7 @@ mod pool;
 #[cfg(test)]
 mod test;
 
+use chrono::{DateTime, Utc};
 use std::{
     collections::HashSet,
     sync::Arc,
@@ -292,7 +293,7 @@ impl ClientSession {
     /// Updates the date that the underlying server session was last used as part of an operation
     /// sent to the server.
     pub(crate) fn update_last_use(&mut self) {
-        self.server_session.last_use = Instant::now();
+        self.server_session.last_use = Utc::now();
     }
 
     /// Gets the current txn_number.
@@ -404,7 +405,7 @@ pub(crate) struct ServerSession {
     id: Document,
 
     /// The last time an operation was executed with this session.
-    last_use: std::time::Instant,
+    last_use: DateTime<Utc>,
 
     /// Whether a network error was encountered while using this session.
     dirty: bool,
@@ -423,7 +424,7 @@ impl ServerSession {
 
         Self {
             id: doc! { "id": binary },
-            last_use: Instant::now(),
+            last_use: Utc::now(),
             dirty: false,
             txn_number: 0,
         }
@@ -436,6 +437,6 @@ impl ServerSession {
             None => return false,
         };
         let expiration_date = self.last_use + timeout;
-        expiration_date < Instant::now() + Duration::from_secs(60)
+        expiration_date < Utc::now() + Duration::from_secs(60)
     }
 }

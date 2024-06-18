@@ -1,3 +1,4 @@
+use chrono::Utc;
 use std::time::{Duration, Instant};
 
 use crate::{
@@ -6,8 +7,7 @@ use crate::{
     error::{ErrorKind, Result},
     operation::{self, Operation},
     sdam::TransactionSupportStatus,
-    BoxFuture,
-    ClientSession,
+    BoxFuture, ClientSession,
 };
 
 use super::TransactionState;
@@ -156,7 +156,7 @@ impl<'a> StartTransaction<&'a mut ClientSession> {
             .session
             .convenient_transaction_timeout
             .unwrap_or(timeout);
-        let start = Instant::now();
+        let start = Utc::now();
 
         use crate::error::{TRANSIENT_TRANSACTION_ERROR, UNKNOWN_TRANSACTION_COMMIT_RESULT};
 
@@ -174,7 +174,9 @@ impl<'a> StartTransaction<&'a mut ClientSession> {
                     ) {
                         self.session.abort_transaction().await?;
                     }
-                    if e.contains_label(TRANSIENT_TRANSACTION_ERROR) && start.elapsed() < timeout {
+                    if e.contains_label(TRANSIENT_TRANSACTION_ERROR)
+                        && (Utc::now() - start).to_std().unwrap() < timeout
+                    {
                         continue 'transaction;
                     }
                     return Err(e);
@@ -192,7 +194,9 @@ impl<'a> StartTransaction<&'a mut ClientSession> {
                 match self.session.commit_transaction().await {
                     Ok(()) => return Ok(ret),
                     Err(e) => {
-                        if e.is_max_time_ms_expired_error() || start.elapsed() >= timeout {
+                        if e.is_max_time_ms_expired_error()
+                            || (Utc::now() - start).to_std().unwrap() >= timeout
+                        {
                             return Err(e);
                         }
                         if e.contains_label(UNKNOWN_TRANSACTION_COMMIT_RESULT) {

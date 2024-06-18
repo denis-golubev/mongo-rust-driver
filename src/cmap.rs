@@ -9,6 +9,7 @@ pub(crate) mod options;
 mod status;
 mod worker;
 
+use chrono::Utc;
 use std::time::Instant;
 
 use derivative::Derivative;
@@ -20,20 +21,15 @@ pub(crate) use self::{
     worker::PoolGeneration,
 };
 use self::{
-    connection_requester::ConnectionRequestResult,
-    establish::ConnectionEstablisher,
+    connection_requester::ConnectionRequestResult, establish::ConnectionEstablisher,
     options::ConnectionPoolOptions,
 };
 use crate::{
     bson::oid::ObjectId,
     error::{Error, Result},
     event::cmap::{
-        CmapEvent,
-        CmapEventEmitter,
-        ConnectionCheckoutFailedEvent,
-        ConnectionCheckoutFailedReason,
-        ConnectionCheckoutStartedEvent,
-        PoolCreatedEvent,
+        CmapEvent, CmapEventEmitter, ConnectionCheckoutFailedEvent, ConnectionCheckoutFailedReason,
+        ConnectionCheckoutStartedEvent, PoolCreatedEvent,
     },
     options::ServerAddress,
     runtime::AcknowledgmentReceiver,
@@ -121,7 +117,7 @@ impl ConnectionPool {
     /// front of the wait queue, and then will block again if no available connections are in the
     /// pool and the total number of connections is not less than the max pool size.
     pub(crate) async fn check_out(&self) -> Result<Connection> {
-        let time_started = Instant::now();
+        let time_started = Utc::now();
         self.event_emitter.emit_event(|| {
             ConnectionCheckoutStartedEvent {
                 address: self.address.clone(),
@@ -155,7 +151,7 @@ impl ConnectionPool {
                         reason: ConnectionCheckoutFailedReason::ConnectionError,
                         #[cfg(feature = "tracing-unstable")]
                         error: Some(_err.clone()),
-                        duration: Instant::now() - time_started,
+                        duration: (Utc::now() - time_started).to_std().unwrap(),
                     }
                     .into()
                 });

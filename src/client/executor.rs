@@ -6,6 +6,7 @@ use futures_core::future::BoxFuture;
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 
+use chrono::Utc;
 use std::{
     borrow::BorrowMut,
     collections::HashSet,
@@ -17,10 +18,7 @@ use super::{options::ServerAddress, session::TransactionState, Client, ClientSes
 use crate::{
     bson::Document,
     change_stream::{
-        event::ChangeStreamEvent,
-        session::SessionChangeStream,
-        ChangeStream,
-        ChangeStreamData,
+        event::ChangeStreamEvent, session::SessionChangeStream, ChangeStream, ChangeStreamData,
         WatchArgs,
     },
     cmap::{
@@ -28,33 +26,20 @@ use crate::{
             wire::{next_request_id, Message},
             PinnedConnectionHandle,
         },
-        Connection,
-        ConnectionPool,
-        RawCommandResponse,
+        Connection, ConnectionPool, RawCommandResponse,
     },
     cursor::{session::SessionCursor, Cursor, CursorSpecification},
     error::{
-        Error,
-        ErrorKind,
-        Result,
-        RETRYABLE_WRITE_ERROR,
-        TRANSIENT_TRANSACTION_ERROR,
+        Error, ErrorKind, Result, RETRYABLE_WRITE_ERROR, TRANSIENT_TRANSACTION_ERROR,
         UNKNOWN_TRANSACTION_COMMIT_RESULT,
     },
     event::command::{
-        CommandEvent,
-        CommandFailedEvent,
-        CommandStartedEvent,
-        CommandSucceededEvent,
+        CommandEvent, CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent,
     },
     hello::LEGACY_HELLO_COMMAND_NAME_LOWERCASE,
     operation::{
         aggregate::{change_stream::ChangeStreamAggregate, AggregateTarget},
-        AbortTransaction,
-        CommandErrorBody,
-        CommitTransaction,
-        ExecutionContext,
-        Operation,
+        AbortTransaction, CommandErrorBody, CommitTransaction, ExecutionContext, Operation,
         Retryability,
     },
     options::{ChangeStreamOptions, SelectionCriteria},
@@ -651,7 +636,7 @@ impl Client {
         })
         .await;
 
-        let start_time = Instant::now();
+        let start_time = Utc::now();
         let command_result = match connection.send_message(message, should_compress).await {
             Ok(response) => {
                 async fn handle_response<T: Operation>(
@@ -730,7 +715,7 @@ impl Client {
             Err(err) => Err(err),
         };
 
-        let duration = start_time.elapsed();
+        let duration = (Utc::now() - start_time).to_std().unwrap();
 
         match command_result {
             Err(mut err) => {

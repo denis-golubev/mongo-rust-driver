@@ -2,6 +2,7 @@ mod command;
 mod stream_description;
 pub(crate) mod wire;
 
+use chrono::{DateTime, Utc};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -28,12 +29,8 @@ use crate::{
     cmap::PoolGeneration,
     error::{load_balanced_mode_mismatch, Error, ErrorKind, Result},
     event::cmap::{
-        CmapEventEmitter,
-        ConnectionCheckedInEvent,
-        ConnectionCheckedOutEvent,
-        ConnectionClosedEvent,
-        ConnectionClosedReason,
-        ConnectionCreatedEvent,
+        CmapEventEmitter, ConnectionCheckedInEvent, ConnectionCheckedOutEvent,
+        ConnectionClosedEvent, ConnectionClosedReason, ConnectionCreatedEvent,
         ConnectionReadyEvent,
     },
     options::ServerAddress,
@@ -245,11 +242,14 @@ impl Connection {
     }
 
     /// Helper to create a `ConnectionCheckedOutEvent` for the connection.
-    pub(super) fn checked_out_event(&self, time_started: Instant) -> ConnectionCheckedOutEvent {
+    pub(super) fn checked_out_event(
+        &self,
+        time_started: DateTime<Utc>,
+    ) -> ConnectionCheckedOutEvent {
         ConnectionCheckedOutEvent {
             address: self.address.clone(),
             connection_id: self.id,
-            duration: Instant::now() - time_started,
+            duration: (Utc::now() - time_started).to_std().unwrap(),
         }
     }
 

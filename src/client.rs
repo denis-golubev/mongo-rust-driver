@@ -8,8 +8,14 @@ pub mod session;
 
 use std::{
     sync::{atomic::AtomicBool, Mutex as SyncMutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Instant;
+
+#[cfg(target_arch = "wasm32")]
+use chrono::offset::Utc;
 
 #[cfg(feature = "in-use-encryption-unstable")]
 pub use self::csfle::client_builder::*;
@@ -19,11 +25,8 @@ use futures_util::FutureExt;
 
 #[cfg(feature = "tracing-unstable")]
 use crate::trace::{
-    command::CommandTracingEventEmitter,
-    server_selection::ServerSelectionTracingEventEmitter,
-    trace_or_log_enabled,
-    TracingOrLogLevel,
-    COMMAND_TRACING_EVENT_TARGET,
+    command::CommandTracingEventEmitter, server_selection::ServerSelectionTracingEventEmitter,
+    trace_or_log_enabled, TracingOrLogLevel, COMMAND_TRACING_EVENT_TARGET,
 };
 use crate::{
     concern::{ReadConcern, WriteConcern},
@@ -34,8 +37,7 @@ use crate::{
     options::{ClientOptions, DatabaseOptions, ReadPreference, SelectionCriteria, ServerAddress},
     sdam::{server_selection, SelectedServer, Topology},
     tracking_arc::TrackingArc,
-    BoxFuture,
-    ClientSession,
+    BoxFuture, ClientSession,
 };
 
 pub(crate) use executor::{HELLO_COMMAND_NAMES, REDACTED_COMMANDS};
@@ -441,13 +443,14 @@ impl Client {
         let criteria =
             criteria.unwrap_or(&SelectionCriteria::ReadPreference(ReadPreference::Primary));
 
-        let start_time = Instant::now();
+        let start_time = Utc::now();
         let timeout = self
             .inner
             .options
             .server_selection_timeout
             .unwrap_or(DEFAULT_SERVER_SELECTION_TIMEOUT);
 
+        // TODO: Using chrono's Utc::now() here breaks the tracing-unstable feature.
         #[cfg(feature = "tracing-unstable")]
         let event_emitter = ServerSelectionTracingEventEmitter::new(
             self.inner.topology.id,
@@ -494,9 +497,11 @@ impl Client {
 
                         watcher.request_immediate_check();
 
-                        let change_occurred = start_time.elapsed() < timeout
+                        let change_occurred = (Utc::now() - start_time).to_std().unwrap() < timeout
                             && watcher
-                                .wait_for_update(timeout - start_time.elapsed())
+                                .wait_for_update(
+                                    timeout - (Utc::now() - start_time).to_std().unwrap(),
+                                )
                                 .await;
                         if !change_occurred {
                             let error: Error = ErrorKind::ServerSelection {
@@ -551,7 +556,8 @@ impl Client {
 
     #[cfg(feature = "in-use-encryption-unstable")]
     pub(crate) async fn primary_description(&self) -> Option<crate::sdam::ServerDescription> {
-        let start_time = Instant::now();
+        // TODO: make the original implementation work again.
+        let start_time = Utc::now();
         let timeout = self
             .inner
             .options
@@ -564,7 +570,7 @@ impl Client {
                 return Some(desc.clone());
             }
             if !watcher
-                .wait_for_update(timeout - start_time.elapsed())
+                .wait_for_update(timeout - (Utc::now() - start_time).to_std().unwrap())
                 .await
             {
                 return None;
