@@ -13,6 +13,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Instant,
 };
+use worker::console_log;
 
 use super::{options::ServerAddress, session::TransactionState, Client, ClientSession};
 use crate::{
@@ -123,6 +124,7 @@ impl Client {
                     }
                 }
             }
+            console_log!("before execute_operation_with_retry");
             self.execute_operation_with_retry(op, session).await
         })
         .await
@@ -139,9 +141,11 @@ impl Client {
         Op: Operation<O = CursorSpecification>,
     {
         Box::pin(async {
+            console_log!("before execute_operation_with_details");
             let mut details = self
                 .execute_operation_with_details(op.borrow_mut(), None)
                 .await?;
+            console_log!("after execute_operation_with_details");
             let pinned =
                 self.pin_connection_for_cursor(&details.output, &mut details.connection)?;
             Ok(Cursor::new(
@@ -293,17 +297,24 @@ impl Client {
             }
         }
 
+        console_log!("before retry loop");
+
         let mut retry: Option<ExecutionRetry> = None;
         let mut implicit_session: Option<ClientSession> = None;
         loop {
             if retry.is_some() {
+                console_log!("in retry.is_some()");
                 op.update_for_retry();
             }
+
+            console_log!("before selection criteria");
 
             let selection_criteria = session
                 .as_ref()
                 .and_then(|s| s.transaction.pinned_mongos())
                 .or_else(|| op.selection_criteria());
+
+            console_log!("before server selection");
 
             let server = match self
                 .select_server(
@@ -322,6 +333,8 @@ impl Client {
                 }
             };
             let server_addr = server.address.clone();
+
+            console_log!("before get_connection");
 
             let mut conn = match get_connection(&session, op, &server.pool).await {
                 Ok(c) => c,
@@ -355,6 +368,8 @@ impl Client {
                 return Err(ErrorKind::SessionsNotSupported.into());
             }
 
+            console_log!("before implicit_session stuff");
+
             if conn.supports_sessions()
                 && session.is_none()
                 && op.supports_sessions()
@@ -364,15 +379,21 @@ impl Client {
                 session = implicit_session.as_mut();
             }
 
+            console_log!("before retryability check");
+
             let retryability = self.get_retryability(&conn, op, &session)?;
             if retryability == Retryability::None {
                 retry.first_error()?;
             }
 
+            console_log!("before txn_number");
+
             let txn_number = retry
                 .as_ref()
                 .and_then(|r| r.prior_txn_number)
                 .or_else(|| get_txn_number(&mut session, retryability));
+
+            console_log!("before execute_operation_on_connection");
 
             let details = match self
                 .execute_operation_on_connection(
@@ -390,6 +411,8 @@ impl Client {
                     implicit_session,
                 },
                 Err(mut err) => {
+                    console_log!("in error of execute_operation_on_connection");
+
                     // If the error is a reauthentication required error, we reauthenticate and
                     // retry the operation.
                     if err.is_reauthentication_required() {

@@ -136,7 +136,7 @@ version = "0.11.5"
 [dependencies.tokio]
 version = "1.17.0"
 default-features = false
-features = ["sync", "io-util", "time", "macros", "rt"]
+features = ["sync", "io-util", "macros", "rt"]
 
 #[dependencies.tokio-rustls]
 #version = "0.24.1"
@@ -160,6 +160,8 @@ worker = "0.3.0"
 wasm-bindgen-futures = "0.4.42"
 # Use wasmbind feature additionally, so that time operations can be used in wasm.
 chrono = { version = "0.4.7", default-features = false, features = ["clock", "std", "wasmbind"] }
+# For time utilities (sleep and interval) as replacement for tokio's time module.
+web-sys = { version = "0.3.69", features = ["Window"] }
 
 [dev-dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }

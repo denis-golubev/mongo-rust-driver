@@ -28,7 +28,7 @@ use crate::{
     sdam::{BroadcastMessage, TopologyUpdater},
 };
 
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use std::{
     collections::{HashMap, VecDeque},
     time::{Duration, Instant},
@@ -247,7 +247,10 @@ impl ConnectionPoolWorker {
     /// dropped. Once all handles are dropped, the pool will close any available connections and
     /// emit a pool closed event.
     async fn execute(mut self) {
-        let mut maintenance_interval = tokio::time::interval(self.maintenance_frequency);
+        let mut maintenance_interval = runtime::time_utils::interval(
+            TimeDelta::from_std(self.maintenance_frequency)
+                .expect("maintenance frequency is too large"),
+        );
         let mut shutdown_ack = None;
 
         loop {

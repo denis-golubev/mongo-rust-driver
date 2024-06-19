@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bson::{Bson, Document};
 use serde::de::DeserializeOwned;
+use worker::console_log;
 
 use crate::{
     coll::options::{CursorType, FindOneOptions, FindOptions, Hint},
@@ -10,10 +11,7 @@ use crate::{
     operation::Find as Op,
     options::ReadConcern,
     selection_criteria::SelectionCriteria,
-    ClientSession,
-    Collection,
-    Cursor,
-    SessionCursor,
+    ClientSession, Collection, Cursor, SessionCursor,
 };
 
 use super::{action_impl, deeplink, option_setters, ExplicitSession, ImplicitSession};
@@ -129,6 +127,7 @@ impl<'a, T: Send + Sync> Action for Find<'a, T, ImplicitSession> {
         resolve_options!(self.coll, self.options, [read_concern, selection_criteria]);
 
         let find = Op::new(self.coll.namespace(), self.filter, self.options);
+        console_log!("before executing cursor operation");
         self.coll.client().execute_cursor_operation(find).await
     }
 }
@@ -204,7 +203,9 @@ impl<'a, T: DeserializeOwned + Send + Sync> Action for FindOne<'a, T> {
             let mut stream = cursor.stream(session);
             stream.next().await.transpose()
         } else {
+            console_log!("before cursor");
             let mut cursor = find.await?;
+            console_log!("awaited cursor, now awaiting next cursor item");
             cursor.next().await.transpose()
         }
     }

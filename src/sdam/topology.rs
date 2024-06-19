@@ -14,32 +14,23 @@ use tokio::sync::{
     mpsc::{self, UnboundedReceiver, UnboundedSender},
     watch::{self, Ref},
 };
+use worker::console_log;
 
 use crate::{
     client::options::{ClientOptions, ServerAddress},
     cmap::{
         conn::ConnectionGeneration,
         establish::{ConnectionEstablisher, EstablisherOptions},
-        Command,
-        Connection,
-        PoolGeneration,
+        Command, Connection, PoolGeneration,
     },
     error::{load_balanced_mode_mismatch, Error, Result},
     event::sdam::{
-        SdamEvent,
-        ServerClosedEvent,
-        ServerDescriptionChangedEvent,
-        ServerOpeningEvent,
-        TopologyClosedEvent,
-        TopologyDescriptionChangedEvent,
-        TopologyOpeningEvent,
+        SdamEvent, ServerClosedEvent, ServerDescriptionChangedEvent, ServerOpeningEvent,
+        TopologyClosedEvent, TopologyDescriptionChangedEvent, TopologyOpeningEvent,
     },
     runtime::{self, AcknowledgedMessage, WorkerHandle, WorkerHandleListener},
     selection_criteria::SelectionCriteria,
-    ClusterTime,
-    ServerInfo,
-    ServerType,
-    TopologyType,
+    ClusterTime, ServerInfo, ServerType, TopologyType,
 };
 
 #[cfg(feature = "tracing-unstable")]
@@ -48,11 +39,7 @@ use crate::trace::topology::TopologyTracingEventEmitter;
 use super::{
     monitor::{MonitorManager, MonitorRequestReceiver},
     srv_polling::SrvPollingMonitor,
-    Monitor,
-    Server,
-    ServerDescription,
-    TopologyDescription,
-    TransactionSupportStatus,
+    Monitor, Server, ServerDescription, TopologyDescription, TransactionSupportStatus,
 };
 
 /// A struct providing access to the client's current view of the topology.
@@ -986,6 +973,7 @@ impl TopologyWatcher {
     ///
     /// This method marks the new topology state as seen.
     pub(crate) async fn wait_for_update(&mut self, timeout: impl Into<Option<Duration>>) -> bool {
+        console_log!("in wait_for_update");
         let changed = if let Some(timeout) = timeout.into() {
             matches!(
                 runtime::timeout(timeout, self.receiver.changed()).await,

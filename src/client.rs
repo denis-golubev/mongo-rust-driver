@@ -22,6 +22,7 @@ pub use self::csfle::client_builder::*;
 use derivative::Derivative;
 use futures_core::Future;
 use futures_util::FutureExt;
+use worker::console_log;
 
 #[cfg(feature = "tracing-unstable")]
 use crate::trace::{
@@ -443,12 +444,16 @@ impl Client {
         let criteria =
             criteria.unwrap_or(&SelectionCriteria::ReadPreference(ReadPreference::Primary));
 
+        console_log!("in select_server, before Utc::now");
         let start_time = Utc::now();
+        console_log!("in select_server, after Utc::now: {:?}", start_time);
         let timeout = self
             .inner
             .options
             .server_selection_timeout
             .unwrap_or(DEFAULT_SERVER_SELECTION_TIMEOUT);
+
+        console_log!("timeout determined: {:?}", timeout);
 
         // TODO: Using chrono's Utc::now() here breaks the tracing-unstable feature.
         #[cfg(feature = "tracing-unstable")]
@@ -466,8 +471,11 @@ impl Client {
         let mut emitted_waiting_message = false;
 
         let mut watcher = self.inner.topology.watch();
+        console_log!("topology watcher created");
+
         loop {
             let state = watcher.observe_latest();
+            console_log!("latest state observed");
 
             let result = server_selection::attempt_to_select_server(
                 criteria,
@@ -475,17 +483,32 @@ impl Client {
                 &state.servers(),
                 deprioritized,
             );
+
+            console_log!("servers: {:?}", state.servers());
+
+            // return Ok(SelectedServer::new(
+            //     state.servers().values().take(1).next().unwrap().clone(),
+            // ));
+
+            console_log!("attempt_to_select_server returned");
+
             match result {
                 Err(error) => {
                     #[cfg(feature = "tracing-unstable")]
                     event_emitter.emit_failed_event(&state.description, &error);
 
+                    console_log!("attempt_to_select_server error");
+
                     return Err(error);
                 }
                 Ok(result) => {
+                    console_log!("attempt_to_select_server success");
+
                     if let Some(server) = result {
                         #[cfg(feature = "tracing-unstable")]
                         event_emitter.emit_succeeded_event(&state.description, &server);
+
+                        console_log!("we have a server!");
 
                         return Ok(server);
                     } else {
@@ -495,7 +518,23 @@ impl Client {
                             emitted_waiting_message = true;
                         }
 
+                        console_log!("no server yet");
+
                         watcher.request_immediate_check();
+
+                        console_log!("after request_immediate_check");
+
+                        console_log!(
+                            "change_occurred condition {:?} < {:?}: {:?}",
+                            (Utc::now() - start_time).to_std().unwrap(),
+                            timeout,
+                            (Utc::now() - start_time).to_std().unwrap() < timeout
+                        );
+
+                        console_log!(
+                            "to wait: {:?}",
+                            timeout - (Utc::now() - start_time).to_std().unwrap()
+                        );
 
                         let change_occurred = (Utc::now() - start_time).to_std().unwrap() < timeout
                             && watcher
@@ -503,6 +542,9 @@ impl Client {
                                     timeout - (Utc::now() - start_time).to_std().unwrap(),
                                 )
                                 .await;
+
+                        console_log!("after change_occurred");
+
                         if !change_occurred {
                             let error: Error = ErrorKind::ServerSelection {
                                 message: state
@@ -510,6 +552,8 @@ impl Client {
                                     .server_selection_timeout_error_message(criteria),
                             }
                             .into();
+
+                            console_log!("no change occurred => error in server selection");
 
                             #[cfg(feature = "tracing-unstable")]
                             event_emitter.emit_failed_event(&state.description, &error);

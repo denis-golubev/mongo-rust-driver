@@ -12,8 +12,7 @@ use crate::{
             server::{ServerDescription, ServerType},
             topology::TopologyType,
         },
-        Server,
-        ServerInfo,
+        Server, ServerInfo,
     },
     selection_criteria::{ReadPreference, SelectionCriteria, TagSet},
 };
@@ -28,7 +27,7 @@ pub(crate) struct SelectedServer {
 }
 
 impl SelectedServer {
-    fn new(server: Arc<Server>) -> Self {
+    pub(crate) fn new(server: Arc<Server>) -> Self {
         server.increment_operation_count();
         Self { server }
     }

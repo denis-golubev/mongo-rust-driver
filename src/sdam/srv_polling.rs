@@ -1,12 +1,11 @@
 #[cfg(test)]
 mod test;
 
+use chrono::TimeDelta;
 use std::time::Duration;
 
 use super::{
-    description::topology::TopologyType,
-    monitor::DEFAULT_HEARTBEAT_FREQUENCY,
-    TopologyUpdater,
+    description::topology::TopologyType, monitor::DEFAULT_HEARTBEAT_FREQUENCY, TopologyUpdater,
     TopologyWatcher,
 };
 use crate::{
@@ -71,7 +70,7 @@ impl SrvPollingMonitor {
         }
 
         while self.topology_watcher.is_alive() {
-            tokio::time::sleep(self.rescan_interval()).await;
+            runtime::time_utils::sleep(TimeDelta::from_std(self.rescan_interval()).unwrap()).await;
 
             if should_poll(self.topology_watcher.topology_type()) {
                 let hosts = self.lookup_hosts().await;

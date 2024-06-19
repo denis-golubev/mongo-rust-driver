@@ -22,7 +22,7 @@ use crate::{
     },
     cmap::{Command, Connection},
     error::{Error, Result},
-    BoxFuture,
+    runtime, BoxFuture,
 };
 use bson::{doc, rawdoc, spec::BinarySubtype, Binary, Document};
 
@@ -275,7 +275,7 @@ enum CallbackKind {
     Machine,
 }
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use std::fmt::Debug;
 
 impl std::fmt::Debug for Function {
@@ -851,7 +851,10 @@ async fn authenticate_machine(
             }
         }
         cred_cache.invalidate(conn, false).await;
-        tokio::time::sleep(MACHINE_INVALIDATE_SLEEP_TIMEOUT).await;
+        runtime::time_utils::sleep(
+            TimeDelta::from_std(MACHINE_INVALIDATE_SLEEP_TIMEOUT).expect("bad timeout"),
+        )
+        .await;
     }
 
     do_single_step_function(

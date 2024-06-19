@@ -14,18 +14,20 @@ pub(crate) mod process;
 mod resolver;
 pub(crate) mod stream;
 mod sync_read_ext;
+pub(crate) mod time_utils;
 #[cfg(feature = "openssl-tls")]
 mod tls_openssl;
 #[cfg(feature = "rustls-tls")]
 #[cfg_attr(feature = "openssl-tls", allow(unused))]
 mod tls_rustls;
-mod worker_handle;
 mod tls_worker;
+mod worker_handle;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::SocketAddr;
 
 use std::{future::Future, time::Duration};
+use worker::console_log;
 
 #[cfg(feature = "dns-resolver")]
 pub(crate) use self::resolver::AsyncResolver;
@@ -40,7 +42,7 @@ pub(crate) use self::{
 #[cfg(not(target_arch = "wasm32"))]
 use crate::options::ServerAddress;
 
-use crate::{error::Result};
+use crate::error::Result;
 #[cfg(any(
     feature = "aws-auth",
     feature = "azure-kms",
@@ -75,10 +77,23 @@ where
 }
 
 /// Await on a future for a maximum amount of time before returning an error.
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) async fn timeout<F: Future>(timeout: Duration, future: F) -> Result<F::Output> {
     tokio::time::timeout(timeout, future)
         .await
         .map_err(|_| std::io::ErrorKind::TimedOut.into())
+}
+
+// TODO: no timeout for now.
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn timeout<F: Future>(timeout: Duration, future: F) -> Result<F::Output> {
+    console_log!("in runtime::timeout");
+
+    let r = Ok(future.await);
+
+    console_log!("after awaiting 'time-outed' future");
+
+    r
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -7,7 +7,7 @@ use std::{
 };
 
 use bson::doc;
-use chrono::Utc;
+use chrono::{TimeDelta, Utc};
 use tokio::sync::watch;
 
 use super::{
@@ -284,7 +284,7 @@ impl Monitor {
                 };
                 HelloResult::Cancelled { reason: reason_error }
             }
-            _ = tokio::time::sleep(timeout) => {
+            _ = runtime::time_utils::sleep(TimeDelta::from_std(timeout).unwrap()) => {
                 HelloResult::Err(Error::network_timeout())
             }
         };
@@ -467,7 +467,7 @@ impl RttMonitor {
             let start = Utc::now();
             let check_succeded = tokio::select! {
                 r = perform_check => r.is_ok(),
-                _ = tokio::time::sleep(timeout) => {
+                _ = runtime::time_utils::sleep(TimeDelta::from_std(timeout).unwrap()) => {
                     false
                 }
             };
@@ -485,10 +485,13 @@ impl RttMonitor {
                 // responsible for resetting the average RTT."
             }
 
-            tokio::time::sleep(
-                self.client_options
-                    .heartbeat_freq
-                    .unwrap_or(DEFAULT_HEARTBEAT_FREQUENCY),
+            runtime::time_utils::sleep(
+                TimeDelta::from_std(
+                    self.client_options
+                        .heartbeat_freq
+                        .unwrap_or(DEFAULT_HEARTBEAT_FREQUENCY),
+                )
+                .unwrap(),
             )
             .await;
         }
@@ -646,7 +649,7 @@ impl MonitorRequestReceiver {
     async fn wait_for_check_request(&mut self, delay: Duration, timeout: Duration) {
         let _ = runtime::timeout(timeout, async {
             let wait_for_check_request = async {
-                tokio::time::sleep(delay).await;
+                runtime::time_utils::sleep(TimeDelta::from_std(delay.into()).unwrap()).await;
                 self.topology_check_request_receiver
                     .wait_for_check_request()
                     .await;
